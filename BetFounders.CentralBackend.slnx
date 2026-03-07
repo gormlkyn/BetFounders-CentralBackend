@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="BetFounders.CentralBackend.App/BetFounders.CentralBackend.App.csproj" Id="ad9b002e-80de-4b4d-834b-d1608f4da6bd" />
+  <Project Path="BetFounders.CentralBackend.Common/BetFounders.CentralBackend.Common.csproj" />
+  <Project Path="BetFounders.CentralBackend.Data/BetFounders.CentralBackend.Data.csproj" />
+</Solution>
