@@ -1,0 +1,126 @@
+﻿@page "/login"
+
+@using BetFounders.CentralBackend.App.Components.Layout
+@using BetFounders.CentralBackend.Common.Constants
+@using BetFounders.CentralBackend.Common.Services.Abstractions
+@using Microsoft.Extensions.Caching.Memory
+@using Radzen
+@using Radzen.Blazor
+
+@inject NavigationManager navigationManager
+@inject NotificationService notificationService
+@inject IAuthService authService
+@inject IMemoryCache memoryCache
+@inject IHttpContextAccessor httpContext
+
+<PageTitle>Login - BetFounders</PageTitle>
+<style>
+    .login-background {
+        background-image: url('/images/BetFounders.png');
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+    }
+
+    .glass-card {
+        background: rgba(255, 255, 255, 0.65) !important;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        border-radius: 16px;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+        width: 100%;
+        max-width: 500px;
+        padding: 1.5rem;
+    }
+
+    .glass-card .rz-card {
+        background-color: transparent !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+    }
+</style>
+
+<div class="login-background">
+    <div class="glass-card">
+        <RadzenTemplateForm Data=@("LoginData")>
+            <RadzenText TextStyle="TextStyle.H4" TextAlign="TextAlign.Center" Class="rz-mb-4" Style="font-weight: 800; color: #112361;">
+                BetFounders
+            </RadzenText>
+            <RadzenLogin AllowRegister="true"
+                         AllowResetPassword="true"
+                         AllowRememberMe="true"
+                         RememberMe="@rememberMe"
+                         Login=@(args => OnSubmitAsync(args))
+                         ResetPassword=@(args => navigationManager.NavigateTo("/login"))
+                         Register=@(args => navigationManager.NavigateTo("/register")) />
+        </RadzenTemplateForm>
+    </div>
+</div>
+@code {
+
+    bool rememberMe = false;
+    bool isBusy = false;
+
+    async Task OnSubmitAsync(LoginArgs args)
+    {
+        isBusy = true;
+        try
+        {
+            var ip = httpContext.HttpContext?.Connection?.RemoteIpAddress?.ToString();
+            var ua = httpContext.HttpContext?.Request?.Headers?.UserAgent.ToString();
+
+            var user = await authService.LoginAsync(args.Username, args.Password, ip, ua);
+
+            if (user != null)
+            {
+                var ticket = Guid.NewGuid().ToString();
+                memoryCache.Set(ticket, user, TimeSpan.FromSeconds(5));
+                navigationManager.NavigateTo($"/api/auth/callback?ticket={ticket}", forceLoad: true);
+            }
+            else
+            {
+                notificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Error,
+                    Summary = "Invalid Credentials",
+                    Detail = "Username or password is incorrect",
+                    Duration = UserNotificationConstants.ErrorDuration
+                });
+            }
+        }
+        catch (UnauthorizedAccessException ex) when (ex.Message == "Account is inactive")
+        {
+            notificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Warning,
+                Summary = "Inactive Account",
+                Detail = "Your account has been deactivated. Please contact your manager.",
+                Duration = UserNotificationConstants.WarningDuration
+            });
+        }
+        catch
+        {
+            notificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "Invalid Credentials",
+                Detail = "Username or password is incorrect",
+                Duration = UserNotificationConstants.ErrorDuration
+            });
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+}

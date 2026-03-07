@@ -1,0 +1,18 @@
+﻿@using BetFounders.CentralBackend.Common.Constants
+
+<RadzenPanelMenu>
+    <RadzenPanelMenuItem Text="Home" Icon="home" Path="" />
+
+    <AuthorizeView Roles="@UserRoles.Admin">
+        <RadzenPanelMenuItem Text="Users" Icon="group" Path="users" />
+    </AuthorizeView>
+
+    <AuthorizeView Roles="@($"{UserRoles.Admin},{UserRoles.Manager}")">
+        <RadzenPanelMenuItem Text="Dashboard" Icon="dashboard" Path="dashboard" />
+    </AuthorizeView>
+
+    <AuthorizeView>
+        <RadzenPanelMenuItem Text="Account" Icon="account_circle" Path="account" />
+    </AuthorizeView>
+    
+</RadzenPanelMenu>

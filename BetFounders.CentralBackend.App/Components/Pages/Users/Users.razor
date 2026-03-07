@@ -1,0 +1,189 @@
+﻿@page "/users"
+@inherits UserAuthenticationHelper
+
+@attribute [Authorize(Roles = UserRoles.Admin)]
+
+@using BetFounders.CentralBackend.Common.Constants
+@using BetFounders.CentralBackend.Common.Extensions
+@using BetFounders.CentralBackend.Common.Models.Users
+@using BetFounders.CentralBackend.Common.Services.Abstractions
+@using BetFounders.CentralBackend.Data.Entities
+@using BetFounders.CentralBackend.Data.Entities.Users
+@using Microsoft.AspNetCore.Authorization
+
+@inject IUserService userService
+@inject NavigationManager navigationManager
+@inject DialogService dialogService
+@inject NotificationService notificationService
+
+<PageTitle>Users</PageTitle>
+<h1>Users</h1>
+<h5>Users List</h5>
+
+<RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Class="rz-mb-4">
+    <RadzenButton Icon="add" Text="New User" Size="ButtonSize.Medium" Click="@(x => navigationManager.NavigateTo(uri: $"/users/create"))" />
+</RadzenStack>
+<RadzenDataGrid AllowAlternatingRows="false"
+                AllowSorting="true"
+                AllowFiltering="true"
+                AllowColumnResize="true"
+                ShowPagingSummary="true"
+                FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                FilterMode="FilterMode.Advanced"
+                GridLines="DataGridGridLines.Both"
+                PagerHorizontalAlign="HorizontalAlign.Left"
+                LogicalFilterOperator="LogicalFilterOperator.And"
+                PageSize="10"
+                Data="@users"
+                @ref="grid">
+    <Columns>
+        <RadzenDataGridColumn Property="@nameof(UserGridModel.Id)" Title="Id" Visible="false" SortOrder="SortOrder.Descending" />
+        <RadzenDataGridColumn Property="@nameof(UserGridModel.FullName)" Title="Name" />
+        <RadzenDataGridColumn Property="@nameof(UserGridModel.RoleName)" Title="Role" />
+        <RadzenDataGridColumn Property="@nameof(UserGridModel.RoleDescription)" Title="Role Description" />
+        <RadzenDataGridColumn Property="@nameof(UserGridModel.Email)" Title="Email" />
+        <RadzenDataGridColumn Property="@nameof(UserGridModel.Username)" Title="Username" />
+        <RadzenDataGridColumn Property="@nameof(UserGridModel.CreatedAt)" Title="Created At" />
+        <RadzenDataGridColumn Property="@nameof(UserGridModel.UpdatedAt)" Title="Updated At" />
+        <RadzenDataGridColumn Property="@nameof(UserGridModel.IsActive)" TItem="UserGridModel" Title="Status" TextAlign="TextAlign.Center">
+            <Template Context="user">
+                <RadzenToggleButton Value="@(user.IsActive == true)"
+                                    Change="@(value => OnStatusToggle(user, value))"
+                                    Text="@(user.IsActive ? "Active" : "Inactive")"
+                                    ButtonStyle="ButtonStyle.Danger"
+                                    ToggleButtonStyle="ButtonStyle.Success"
+                                    Size="ButtonSize.Small" />
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn Title="Actions" Width="185px" Sortable="false" Filterable="false">
+            <Template Context="data">
+                <RadzenButton Title="Edit User" Click="@(x => navigationManager.NavigateTo(uri: $"/users/edit/{data.Id}"))"
+                              Icon="edit" ButtonStyle="ButtonStyle.Warning" Size="ButtonSize.Medium" Class="rz-ml-1" />
+                <RadzenButton Title="Delete User" Click="@(x => DeleteAsync(data.Id))"
+                              Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Medium" Class="rz-ml-1" />
+            </Template>
+        </RadzenDataGridColumn>
+    </Columns>
+    <EmptyTemplate>
+        "No Data"
+    </EmptyTemplate>
+</RadzenDataGrid>
+
+@code {
+    RadzenDataGrid<UserGridModel> grid;
+    IEnumerable<UserGridModel> users = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        users = await userService.GetAllAsync(User.GetId());
+    }
+
+    async Task OnStatusToggle(UserGridModel user, bool newStatus)
+    {
+        if (user.Id == User.GetId())
+        {
+            notificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "Unaothorized action",
+                Detail = "You cannot delete your own account",
+                Duration = UserNotificationConstants.ErrorDuration
+            });
+            return;
+        }
+        try
+        {
+            var result = await userService.UpdateStatusAsync(user.Id, newStatus);
+            if (result.IsSuccess)
+            {
+                user.IsActive = newStatus;
+                notificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Success,
+                    Summary = "Updated",
+                    Detail = $"User was successfully {(newStatus ? "activated" : "deactivated")}",
+                    Duration = UserNotificationConstants.SuccessDuration
+                });
+            }
+            else
+            {
+                notificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Error,
+                    Summary = "Update Failed",
+                    Detail = "Please try again later",
+                    Duration = UserNotificationConstants.ErrorDuration
+                });
+            }
+        }
+        catch
+        {
+            notificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "System Error",
+                Detail = "An unexpected error occurred while deleting. Please try again later",
+                Duration = UserNotificationConstants.ErrorDuration
+            });
+        }
+    }
+
+    async Task DeleteAsync(long id)
+    {
+        if (id == User.GetId())
+        {
+            notificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "Unauthorized action",
+                Detail = "You cannot delete your own account",
+                Duration = UserNotificationConstants.ErrorDuration
+            });
+            return;
+        }
+        var confirmed = await dialogService.Confirm("Are you sure you want to delete this user? This cannot be undone.", "Delete User",
+            new ConfirmOptions() { OkButtonText = "Yes, Delete", CancelButtonText = "Cancel" });
+
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        try
+        {
+            var result = await userService.DeleteAsync(id);
+            if (result.IsSuccess)
+            {
+                notificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Success,
+                    Summary = "Deleted",
+                    Detail = "User was successfully deleted",
+                    Duration = UserNotificationConstants.SuccessDuration
+                });
+                users = await userService.GetAllAsync(User.GetId());
+            }
+            else
+            {
+                notificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Error,
+                    Summary = "Delete Failed",
+                    Detail = "Please try again later",
+                    Duration = UserNotificationConstants.ErrorDuration
+                });
+            }
+        }
+        catch
+        {
+            notificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "System Error",
+                Detail = "An unexpected error occurred while deleting. Please try again later",
+                Duration = UserNotificationConstants.ErrorDuration
+            });
+        }
+    }
+}

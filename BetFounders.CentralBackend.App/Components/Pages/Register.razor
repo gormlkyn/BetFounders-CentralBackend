@@ -1,0 +1,205 @@
+﻿@page "/register"
+
+@using BetFounders.CentralBackend.App.Components.Layout
+@using BetFounders.CentralBackend.Common.Constants
+@using BetFounders.CentralBackend.Common.Services.Abstractions
+@using BetFounders.CentralBackend.Common.Models.Users
+@using Microsoft.Extensions.Caching.Memory
+@using Radzen
+@using Radzen.Blazor
+
+@inject NavigationManager navigationManager
+@inject NotificationService notificationService
+@inject IUserService userService
+
+<PageTitle>Register - BetFounders</PageTitle>
+
+<style>
+    .login-background {
+        background-image: url('/images/BetFounders.png');
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+    }
+
+    .glass-card {
+        background: rgba(255, 255, 255, 0.65) !important;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        border-radius: 16px;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+        width: 100%;
+        max-width: 650px;
+        padding: 2rem;
+    }
+
+    .glass-card .rz-textbox, .glass-card .rz-password {
+        background-color: rgba(255, 255, 255, 0.8) !important;
+    }
+</style>
+
+<div class="login-background">
+    <div class="glass-card">
+
+        <RadzenText TextStyle="TextStyle.H4" TextAlign="TextAlign.Center" Class="rz-mb-4" Style="font-weight: 800; color: #112361;">
+            Join BetFounders
+        </RadzenText>
+
+        <RadzenTemplateForm TItem="UserModel" Data="model" Submit=@OnSubmitAsync>
+            <RadzenStack Gap="1rem">
+
+                <RadzenRow Gap="1rem">
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenFormField Text="First Name" Variant="Variant.Outlined" Style="width: 100%;">
+                            <ChildContent>
+                                <RadzenTextBox @bind-Value="model.FirstName" Name="FirstName" Style="width: 100%;" />
+                            </ChildContent>
+                            <Helper>
+                                <RadzenRequiredValidator Component="FirstName" Text="First name is required" />
+                            </Helper>
+                        </RadzenFormField>
+                    </RadzenColumn>
+
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenFormField Text="Last Name" Variant="Variant.Outlined" Style="width: 100%;">
+                            <ChildContent>
+                                <RadzenTextBox @bind-Value="model.LastName" Name="LastName" Style="width: 100%;" />
+                            </ChildContent>
+                            <Helper>
+                                <RadzenRequiredValidator Component="LastName" Text="Last name is required" />
+                            </Helper>
+                        </RadzenFormField>
+                    </RadzenColumn>
+                </RadzenRow>
+
+                <RadzenRow Gap="1rem">
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenFormField Text="Email" Variant="Variant.Outlined" Style="width: 100%;">
+                            <ChildContent>
+                                <RadzenTextBox @bind-Value="model.Email" Name="Email" Style="width: 100%;" />
+                            </ChildContent>
+                            <Helper>
+                                <RadzenRequiredValidator Component="Email" Text="Email is required" />
+                                <RadzenEmailValidator Component="Email" Text="Invalid email format" />
+                            </Helper>
+                        </RadzenFormField>
+                    </RadzenColumn>
+
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenFormField Text="Username" Variant="Variant.Outlined" Style="width: 100%;">
+                            <ChildContent>
+                                <RadzenTextBox @bind-Value="model.Username" Name="Username" Style="width: 100%;" />
+                            </ChildContent>
+                            <Helper>
+                                <RadzenRequiredValidator Component="Username" Text="Username is required" />
+                            </Helper>
+                        </RadzenFormField>
+                    </RadzenColumn>
+                </RadzenRow>
+
+
+                <RadzenRow Gap="1rem">
+
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenFormField Text="Password" Variant="Variant.Outlined" Style="width: 100%;">
+                            <ChildContent>
+                                <RadzenPassword @bind-Value="model.Password" Name="Password" Style="width: 100%;" />
+                            </ChildContent>
+                            <Helper>
+                                <RadzenRequiredValidator Component="Password" Text="Required" />
+                                <RadzenLengthValidator Component="Password" Min="6" Text="Min 6 chars" />
+                            </Helper>
+                        </RadzenFormField>
+                    </RadzenColumn>
+
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenFormField Text="Confirm Password" Variant="Variant.Outlined" Style="width: 100%;">
+                            <ChildContent>
+                                <RadzenPassword @bind-Value="confirmPassword" Name="ConfirmPassword" Style="width: 100%;" />
+                            </ChildContent>
+                            <Helper>
+                                <RadzenRequiredValidator Component="ConfirmPassword" Text="Please confirm" />
+                                <RadzenCompareValidator Visible=@(!string.IsNullOrEmpty(confirmPassword))
+                                                        Value=@model.Password
+                                                        Component="ConfirmPassword"
+                                                        Text="Passwords do not match" />
+                            </Helper>
+                        </RadzenFormField>
+                    </RadzenColumn>
+                </RadzenRow>
+
+                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Class="rz-mt-4">
+                    <RadzenButton ButtonType="ButtonType.Button" Text="Back to Login" ButtonStyle="ButtonStyle.Light" Variant="Variant.Text" Click="@(() => navigationManager.NavigateTo("/login"))" />
+                    <RadzenButton ButtonType="ButtonType.Submit" Text="Create Account" ButtonStyle="ButtonStyle.Primary" IsBusy="@isSubmitting" />
+                </RadzenStack>
+
+            </RadzenStack>
+        </RadzenTemplateForm>
+    </div>
+</div>
+
+@code {
+    UserModel model = new();
+    bool isSubmitting = false;
+    string confirmPassword;
+
+    private async Task OnSubmitAsync()
+    {
+        try
+        {
+            if (model.Password != confirmPassword)
+            {
+                notificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Error,
+                    Detail = "result.ErrorMessage",
+                    Duration = UserNotificationConstants.ErrorDuration
+                });
+            }
+            isSubmitting = true;
+            model.RoleId = 3;
+
+            var result = await userService.CreateAsync(model);
+
+            if (result.IsSuccess)
+            {
+                notificationService.Notify(NotificationSeverity.Success, "Registration Successful", "You can now log in with your new account!");
+                navigationManager.NavigateTo("/login");
+            }
+            else
+            {
+                notificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Error,
+                    Summary = "Registration Failed",
+                    Detail = result.ErrorMessage,
+                    Duration = UserNotificationConstants.ErrorDuration
+                });
+            }
+        }
+        catch
+        {
+            notificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "System Error",
+                Detail = "An unexpected error occurred. Please try again later.",
+                Duration = UserNotificationConstants.ErrorDuration
+            });
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+}

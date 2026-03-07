@@ -1,0 +1,66 @@
+﻿@inherits LayoutComponentBase
+
+@inject NavigationManager navigationManager
+@inject DialogService dialogService
+
+<RadzenComponents />
+
+<RadzenLayout>
+    <AuthorizeView>
+        <Authorized>
+            <RadzenHeader>
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0" Class="rz-p-2">
+                    <RadzenSidebarToggle Click="@(() => sidebarExpanded = !sidebarExpanded)" />
+                    <RadzenLabel Text="BetFounders" Style="margin-left: 10px; font-weight: bold;" />
+                </RadzenStack>
+            </RadzenHeader>
+
+            <RadzenSidebar @bind-Expanded="@sidebarExpanded">
+                <div class="d-flex flex-column" style="height: 100%;">
+                    <div style="flex-grow: 1;">
+                        <NavMenu />
+                    </div>
+
+                    <div class="rz-p-4" style="border-top: 1px solid var(--rz-secondary-lighter);">
+                        <RadzenButton Icon="logout"
+                                      Text="Log out"
+                                      ButtonStyle="ButtonStyle.Base"
+                                      Variant="Variant.Text"
+                                      Class="w-100 justify-content-start"
+                                      Click="@ConfirmLogout" />
+                    </div>
+                </div>
+            </RadzenSidebar>
+        </Authorized>
+    </AuthorizeView>
+
+    <RadzenBody>
+        <div class="rz-p-4">
+            @Body
+        </div>
+    </RadzenBody>
+</RadzenLayout>
+
+<div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>
+
+@code {
+    bool sidebarExpanded = true;
+
+    private async Task ConfirmLogout()
+    {
+        var result = await dialogService.Confirm(
+            "Are you sure you want to log out?",
+            "Log Out",
+            new ConfirmOptions() { OkButtonText = "Yes", CancelButtonText = "No" }
+        );
+
+        if (result == true)
+        {
+            navigationManager.NavigateTo("/api/auth/logout", forceLoad: true);
+        }
+    }
+}

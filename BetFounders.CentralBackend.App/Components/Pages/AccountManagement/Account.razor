@@ -1,0 +1,305 @@
+﻿@page "/account"
+@inherits UserAuthenticationHelper
+
+@attribute [Authorize]
+
+@using System.ComponentModel.DataAnnotations
+@using BetFounders.CentralBackend.Common.Constants
+@using BetFounders.CentralBackend.Common.Extensions
+@using BetFounders.CentralBackend.Common.Models
+@using BetFounders.CentralBackend.Common.Models.Users
+@using BetFounders.CentralBackend.Common.Services.Abstractions
+@using BetFounders.CentralBackend.Data.Entities
+@using Microsoft.AspNetCore.Identity
+
+@inject NavigationManager navigationManager
+@inject NotificationService notificationService
+@inject IUserService userService
+@inject IRoleService roleService
+
+<PageTitle>Account</PageTitle>
+<RadzenTabs @bind-SelectedIndex=@selectedIndex>
+    <Tabs>
+        <RadzenTabsItem Text="Personal Information">
+            <RadzenTemplateForm TItem="UserProfileModel" Data="model" Submit=@OnSubmitAsync>
+                <RadzenStack Gap="1rem" Class="rz-p-0 rz-p-md-2">
+
+                    <RadzenRow JustifyContent="JustifyContent.Center">
+                        <RadzenColumn Size="12" SizeMD="10" SizeLG="8">
+
+                            <RadzenCard Class="rz-mb-4">
+                                <RadzenFieldset AllowCollapse="true" Class="rz-mb-4">
+                                    <HeaderTemplate>
+                                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
+                                            <RadzenIcon Icon="person" />
+                                            <b>Personal Information</b>
+                                        </RadzenStack>
+                                    </HeaderTemplate>
+                                    <ChildContent>
+                                        <RadzenStack Gap="1rem">
+
+                                            <RadzenRow Gap="1rem">
+                                                <RadzenColumn Size="12" SizeMD="6">
+                                                    <RadzenFormField Text="First Name" Variant="Variant.Outlined" Style="width: 100%;">
+                                                        <ChildContent>
+                                                            <RadzenTextBox @bind-Value="model.FirstName" Name="FirstName" Style="width: 100%;" />
+                                                        </ChildContent>
+                                                        <Helper>
+                                                            <RadzenRequiredValidator Component="FirstName" Text="First name is required" />
+                                                        </Helper>
+                                                    </RadzenFormField>
+                                                </RadzenColumn>
+
+                                                <RadzenColumn Size="12" SizeMD="6">
+                                                    <RadzenFormField Text="Last Name" Variant="Variant.Outlined" Style="width: 100%;">
+                                                        <ChildContent>
+                                                            <RadzenTextBox @bind-Value="model.LastName" Name="LastName" Style="width: 100%;" />
+                                                        </ChildContent>
+                                                        <Helper>
+                                                            <RadzenRequiredValidator Component="LastName" Text="Last name is required" />
+                                                        </Helper>
+                                                    </RadzenFormField>
+                                                </RadzenColumn>
+                                            </RadzenRow>
+
+                                            <RadzenRow Gap="1rem">
+                                                <RadzenColumn Size="12" SizeMD="6">
+                                                    <RadzenFormField Text="Email" Variant="Variant.Outlined" Style="width: 100%;">
+                                                        <ChildContent>
+                                                            <RadzenTextBox @bind-Value="model.Email" Name="Email" Style="width: 100%;" />
+                                                        </ChildContent>
+                                                        <Helper>
+                                                            <RadzenRequiredValidator Component="Email" Text="Email is required" />
+                                                            <RadzenEmailValidator Component="Email" Text="Invalid email format" />
+                                                        </Helper>
+                                                    </RadzenFormField>
+                                                </RadzenColumn>
+
+                                                <RadzenColumn Size="12" SizeMD="6">
+                                                    <RadzenFormField Text="Username" Variant="Variant.Outlined" Style="width: 100%;">
+                                                        <ChildContent>
+                                                            <RadzenTextBox @bind-Value="model.Username" Name="Username" Style="width: 100%;" />
+                                                        </ChildContent>
+                                                    </RadzenFormField>
+                                                </RadzenColumn>
+                                            </RadzenRow>
+
+                                        </RadzenStack>
+                                    </ChildContent>
+                                </RadzenFieldset>
+                            </RadzenCard>
+
+                            <RadzenCard>
+                                <RadzenFieldset AllowCollapse="true" Class="rz-mb-4">
+                                    <HeaderTemplate>
+                                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
+                                            <RadzenIcon Icon="manage_accounts" />
+                                            <b>Account Details</b>
+                                        </RadzenStack>
+                                    </HeaderTemplate>
+                                    <ChildContent>
+                                        <RadzenStack Gap="1.5rem">
+
+                                            <RadzenRow>
+                                                <RadzenColumn Size="12" SizeMD="6">
+                                                    <RadzenStack Gap="0">
+                                                        <RadzenText TextStyle="TextStyle.Caption" Class="rz-color-base-500 rz-m-0">Role</RadzenText>
+                                                        <RadzenText TextStyle="TextStyle.Body1" Class="rz-m-0"><b>@model.RoleName</b></RadzenText>
+                                                    </RadzenStack>
+                                                </RadzenColumn>
+
+                                                <RadzenColumn Size="12" SizeMD="6">
+                                                    <RadzenStack Gap="0">
+                                                        <RadzenText TextStyle="TextStyle.Caption" Class="rz-color-base-500 rz-m-0">Role Description</RadzenText>
+                                                        <RadzenText TextStyle="TextStyle.Body1" Class="rz-m-0"><b>@model.RoleDescription</b></RadzenText>
+                                                    </RadzenStack>
+                                                </RadzenColumn>
+                                            </RadzenRow>
+
+                                            <RadzenRow>
+                                                <RadzenColumn Size="12" SizeMD="6">
+                                                    <RadzenStack Gap="0">
+                                                        <RadzenText TextStyle="TextStyle.Caption" Class="rz-color-base-500 rz-m-0">Created At</RadzenText>
+                                                        <RadzenText TextStyle="TextStyle.Body1" Class="rz-m-0">
+                                                            <b>@model.CreatedAt.ToString("MMM dd, yyyy HH:mm")</b>
+                                                        </RadzenText>
+                                                    </RadzenStack>
+                                                </RadzenColumn>
+
+                                                <RadzenColumn Size="12" SizeMD="6">
+                                                    <RadzenStack Gap="0">
+                                                        <RadzenText TextStyle="TextStyle.Caption" Class="rz-color-base-500 rz-m-0">Updated At</RadzenText>
+                                                        <RadzenText TextStyle="TextStyle.Body1" Class="rz-m-0">
+                                                            <b>@(model.UpdatedAt?.ToString("MMM dd, yyyy HH:mm") ?? "Never")</b>
+                                                        </RadzenText>
+                                                    </RadzenStack>
+                                                </RadzenColumn>
+                                            </RadzenRow>
+
+                                        </RadzenStack>
+                                    </ChildContent>
+                                </RadzenFieldset>
+                            </RadzenCard>
+                        </RadzenColumn>
+                    </RadzenRow>
+
+                    <RadzenRow JustifyContent="JustifyContent.Center">
+                        <RadzenColumn Size="12" SizeMD="10" SizeLG="8">
+                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem" Class="rz-mt-4">
+                                <RadzenButton ButtonType="ButtonType.Button" Text="Cancel" ButtonStyle="ButtonStyle.Light" Click="@(() => navigationManager.NavigateTo("/"))" />
+                                <RadzenButton ButtonType="ButtonType.Submit" Text="Save" ButtonStyle="ButtonStyle.Primary" IsBusy="@isSubmitting" />
+                            </RadzenStack>
+                        </RadzenColumn>
+                    </RadzenRow>
+
+                </RadzenStack>
+            </RadzenTemplateForm>
+        </RadzenTabsItem>
+
+        <RadzenTabsItem Text="Change Password">
+            <RadzenText TextStyle="TextStyle.H5" Class="rz-mb-4">Change Password</RadzenText>
+
+            <RadzenTemplateForm TItem="UserPasswordModel" Data="@passwordModel" Submit="@OnPasswordChange">
+                <RadzenStack Gap="1rem">
+
+                    <RadzenRow>
+                        <RadzenColumn Size="12" SizeMD="6">
+                            <RadzenFormField Text="Current Password" Variant="Variant.Outlined" Style="width: 100%;">
+                                <ChildContent>
+                                    <RadzenPassword @bind-Value="passwordModel.CurrentPassword" Name="CurrentPassword" Style="width: 100%;" />
+                                </ChildContent>
+                                <Helper>
+                                    <RadzenRequiredValidator Component="CurrentPassword" Text="Current password is required" />
+                                </Helper>
+                            </RadzenFormField>
+                        </RadzenColumn>
+                    </RadzenRow>
+
+                    <RadzenRow>
+                        <RadzenColumn Size="12" SizeMD="6">
+                            <RadzenFormField Text="New Password" Variant="Variant.Outlined" Style="width: 100%;">
+                                <ChildContent>
+                                    <RadzenPassword @bind-Value="passwordModel.NewPassword" Name="NewPassword" Style="width: 100%;" />
+                                </ChildContent>
+                                <Helper>
+                                    <RadzenRequiredValidator Component="NewPassword" Text="New password is required" />
+                                    <RadzenLengthValidator Component="NewPassword" Min="6" Text="Password must be at least 6 characters" />
+                                </Helper>
+                            </RadzenFormField>
+                        </RadzenColumn>
+                    </RadzenRow>
+
+                    <RadzenRow>
+                        <RadzenColumn Size="12" SizeMD="6">
+                            <RadzenFormField Text="Confirm New Password" Variant="Variant.Outlined" Style="width: 100%;">
+                                <ChildContent>
+                                    <RadzenPassword @bind-Value="passwordModel.ConfirmPassword" Name="ConfirmPassword" Style="width: 100%;" />
+                                </ChildContent>
+                                <Helper>
+                                    <RadzenRequiredValidator Component="ConfirmPassword" Text="Please confirm your new password" />
+                                    <RadzenCompareValidator Component="ConfirmPassword" Value="@passwordModel.NewPassword" Text="Passwords do not match" />
+                                </Helper>
+                            </RadzenFormField>
+                        </RadzenColumn>
+                    </RadzenRow>
+
+                    <RadzenRow>
+                        <RadzenColumn Size="12" SizeMD="6">
+                            <RadzenButton ButtonType="ButtonType.Submit" Text="Update Password" Icon="lock_reset" ButtonStyle="ButtonStyle.Primary" Class="rz-mt-2" />
+                        </RadzenColumn>
+                    </RadzenRow>
+
+                </RadzenStack>
+            </RadzenTemplateForm>
+        </RadzenTabsItem>
+    </Tabs>
+</RadzenTabs>
+
+@code {
+    UserProfileModel model = new();
+    UserPasswordModel passwordModel = new();
+
+    int selectedIndex = 0;
+    bool isSubmitting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        model = await userService.GetProfileModelAsync(User.GetId());
+        passwordModel.UserId = model.Id;
+    }
+
+    async Task OnSubmitAsync(UserProfileModel model)
+    {
+        try
+        {
+            isSubmitting = true;
+            var result = await userService.UpdateAsync(model);
+
+            if (result.IsSuccess)
+            {
+                notificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Success,
+                    Summary = "Updated",
+                    Detail = "User updated successfully!",
+                    Duration = UserNotificationConstants.SuccessDuration
+                });
+            }
+            else
+            {
+                notificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Error,
+                    Summary = "Update Failed",
+                    Detail = result.ErrorMessage,
+                    Duration = UserNotificationConstants.ErrorDuration
+                });
+                return;
+            }
+        }
+        catch
+        {
+            notificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "System Error",
+                Detail = "An unexpected error occurred while deleting. Please try again later",
+                Duration = UserNotificationConstants.ErrorDuration
+            });
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+
+    }
+
+    async Task OnPasswordChange()
+    {
+        var result = await userService.ChangePasswordAsync(passwordModel);
+
+        if (result.IsSuccess)
+        {
+            notificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Success,
+                Summary = "Success",
+                Detail = "Password updated successfully!",
+                Duration = UserNotificationConstants.SuccessDuration
+            });
+            passwordModel = new UserPasswordModel { UserId = model.Id };
+            selectedIndex = 0;
+        }
+        else
+        {
+            notificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "Error",
+                Detail = result.ErrorMessage,
+                Duration = UserNotificationConstants.ErrorDuration
+            });
+        }
+    }
+}

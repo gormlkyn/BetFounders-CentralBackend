@@ -1,0 +1,19 @@
+﻿@page "/"
+@using BetFounders.CentralBackend.Common.Extensions
+
+@attribute [Authorize]
+@inherits UserAuthenticationHelper
+
+<PageTitle>Home</PageTitle>
+<h1>@greeting</h1>
+Welcome to BetFounders App
+
+@code {
+    string greeting = "Hello";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        greeting += $" {User.GetName()}";
+    }
+}

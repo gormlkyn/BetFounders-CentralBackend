@@ -1,0 +1,106 @@
+﻿@page "/dashboard"
+@inherits UserAuthenticationHelper
+
+@attribute [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Manager}")]
+
+@using BetFounders.CentralBackend.Common.Constants
+@using BetFounders.CentralBackend.Common.Extensions
+@using BetFounders.CentralBackend.Common.Models.Users
+@using BetFounders.CentralBackend.Common.Services.Abstractions
+@using BetFounders.CentralBackend.Data.Entities
+@using BetFounders.CentralBackend.Data.Entities.Users
+@using Microsoft.AspNetCore.Authorization
+
+@inject IUserService userService
+@inject NavigationManager navigationManager
+
+<h1>Dashboard</h1>
+<h5>User Activites</h5>
+
+<RadzenCard Class="rz-mb-4">
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Class="rz-mb-4">
+        <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-m-0">Total Users: @usersCount</RadzenText>
+        <RadzenText TextStyle="TextStyle.Body2" Class="rz-color-text-tertiary">@DateTime.Now.ToString("dddd, MMMM d, yyyy - h:mm tt")</RadzenText>
+    </RadzenStack>
+
+    <RadzenDataGrid Data="@users" TItem="UserDashboardModel" RowExpand="@OnRowExpand" AllowFiltering="true" AllowSorting="true" AllowPaging="true" PageSize="10" ExpandMode="DataGridExpandMode.Single">
+
+        <Template Context="user">
+            <RadzenCard>
+                <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H4" Class="rz-mb-3">
+                    <strong>Login History</strong>
+                </RadzenText>
+
+                @if (user.Logins == null)
+                {
+                    <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+                    <RadzenText TextStyle="TextStyle.Body2" Class="rz-mt-2">Loading history...</RadzenText>
+                }
+                else if (!user.Logins.Any())
+                {
+                    <RadzenText TextStyle="TextStyle.Body2">No login history found for this user.</RadzenText>
+                }
+                else
+                {
+                    <RadzenDataGrid Data="@user.Logins" TItem="LoginDashboardModel" AllowSorting="true" AllowPaging="true" PageSize="5">
+                        <Columns>
+                            <RadzenDataGridColumn TItem="LoginDashboardModel" Property="UserAgent" Title="Device/Browser" Width="350px">
+                                <Template Context="login">
+                                    <div style="white-space: normal; word-break: break-word;">
+                                        @login.UserAgent
+                                    </div>
+                                </Template>
+                            </RadzenDataGridColumn>
+                            <RadzenDataGridColumn TItem="LoginDashboardModel" Property="IpAddress" Title="IP Address" />
+                            <RadzenDataGridColumn TItem="LoginDashboardModel" Property="LoginAt" Title="Date & Time" FormatString="{0:g}" />
+                            <RadzenDataGridColumn TItem="LoginDashboardModel" Property="IsSuccess" Title="Status">
+                                <Template Context="login">
+                                    @if (login.IsSuccess)
+                                    {
+                                        <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Success" />
+                                    }
+                                    else
+                                    {
+                                        <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="Failed" />
+                                    }
+                                </Template>
+                            </RadzenDataGridColumn>
+                        </Columns>
+                    </RadzenDataGrid>
+                }
+            </RadzenCard>
+        </Template>
+
+        <Columns>
+            <RadzenDataGridColumn TItem="UserDashboardModel" Property="FullName" Title="Name" />
+            <RadzenDataGridColumn TItem="UserDashboardModel" Property="Username" Title="Username" />
+            <RadzenDataGridColumn TItem="UserDashboardModel" Property="RoleName" Title="Role">
+                <Template Context="user">
+                    <RadzenBadge BadgeStyle="BadgeStyle.Info" IsPill="true" Text="@user.RoleName" />
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="UserDashboardModel" Property="Email" Title="Email" />
+        </Columns>
+    </RadzenDataGrid>
+</RadzenCard>
+
+@code {
+    IEnumerable<UserDashboardModel> users;
+    int usersCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        users = await userService.GetAllForDashboardAsync();
+        usersCount = users.Count();
+    }
+
+    private async Task OnRowExpand(UserDashboardModel user)
+    {
+        if (user.Logins == null || !user.Logins.Any())
+        {
+            var history = await userService.GetUserLoginsAsync(user.Id);
+            user.Logins = history.ToList();
+        }
+    }
+}

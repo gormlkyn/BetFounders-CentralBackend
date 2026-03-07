@@ -1,0 +1,15 @@
+﻿@using BetFounders.CentralBackend.Common.Services.Abstractions
+@using System.Security.Claims
+
+@inject AuthenticationStateProvider authenticationStateProvider
+@inject IAuthService authService
+
+@code {
+    public ClaimsPrincipal User { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authenticationState = await authenticationStateProvider.GetAuthenticationStateAsync();
+        User = authenticationState.User;
+    }
+}
