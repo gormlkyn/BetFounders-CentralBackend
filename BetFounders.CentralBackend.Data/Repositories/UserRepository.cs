@@ -3,6 +3,7 @@ using BetFounders.CentralBackend.Data.Entities.Roles;
 using BetFounders.CentralBackend.Data.Entities.Users;
 using BetFounders.CentralBackend.Data.Repositories.Abstractions;
 using Dapper;
+using System.Data;
 
 namespace BetFounders.CentralBackend.Data.Repositories;
 
@@ -12,44 +13,33 @@ public class UserRepository(DbConnectionFactory dbFactory) : IUserRepository
     {
         using var conn = dbFactory.CreateConnection();
 
-        var sql = $@"
-        SELECT u.*, r.* FROM Users u
-        INNER JOIN Roles r ON u.RoleId = r.Id
-        {(excludeId.HasValue ? "WHERE u.Id != @ExcludeId" : "")}
-        ORDER BY u.CreatedAt DESC";
-
-        var users = await conn.QueryAsync<User, Role, User>(
-            sql,
+        return await conn.QueryAsync<User, Role, User>(
+            "sp_GetAllUsers",
             (user, role) =>
             {
                 user.Role = role;
                 return user;
             },
-            new { ExcludeId = excludeId },
-            splitOn: "Id"
+            new { p_ExcludeId = excludeId },
+            splitOn: "Id",
+            commandType: CommandType.StoredProcedure
         );
-
-        return users;
     }
 
     public async Task<User?> GetByIdAsync(long id)
     {
         using var conn = dbFactory.CreateConnection();
 
-        var sql = @"
-        SELECT u.*, r.* FROM Users u
-        INNER JOIN Roles r ON u.RoleId = r.Id
-        WHERE u.Id = @Id";
-
         var users = await conn.QueryAsync<User, Role, User>(
-            sql,
+            "sp_GetUserById",
             (user, role) =>
             {
                 user.Role = role;
                 return user;
             },
-            new { Id = id },
-            splitOn: "Id"
+            new { p_Id = id },
+            splitOn: "Id",
+            commandType: CommandType.StoredProcedure
         );
 
         return users.FirstOrDefault();
@@ -59,20 +49,16 @@ public class UserRepository(DbConnectionFactory dbFactory) : IUserRepository
     {
         using var conn = dbFactory.CreateConnection();
 
-        var sql = @"
-        SELECT u.*, r.* FROM Users u
-        INNER JOIN Roles r ON u.RoleId = r.Id
-        WHERE u.Username = @Username OR u.Email = @Username";
-
         var users = await conn.QueryAsync<User, Role, User>(
-            sql,
+            "sp_GetUserByUsername",
             (user, role) =>
             {
                 user.Role = role;
                 return user;
             },
-            new { Username = username }, // Binds to both @Username parameters in the SQL!
-            splitOn: "Id"
+            new { p_Username = username },
+            splitOn: "Id",
+            commandType: CommandType.StoredProcedure
         );
 
         return users.FirstOrDefault();
@@ -82,137 +68,147 @@ public class UserRepository(DbConnectionFactory dbFactory) : IUserRepository
     {
         using var conn = dbFactory.CreateConnection();
 
-        var sql = @"
-        SELECT h.*, u.Username
-        FROM UserLoginHistory h
-        INNER JOIN Users u ON u.Id = h.UserId
-        WHERE h.UserId = @UserId
-        ORDER BY h.LoginAt DESC";
-
-        return await conn.QueryAsync<UserLoginHistory>(sql, new { UserId = userId });
+        return await conn.QueryAsync<UserLoginHistory>(
+            "sp_GetLoginsByUserId",
+            new { p_UserId = userId },
+            commandType: CommandType.StoredProcedure
+        );
     }
 
     public async Task<bool> EmailExistsAsync(string email, long? excludeId = null)
     {
         using var conn = dbFactory.CreateConnection();
 
-        var sql = $@"
-        SELECT EXISTS (
-            SELECT 1 FROM Users 
-            WHERE Email = @Email 
-            {(excludeId.HasValue ? "AND Id != @ExcludeId" : "")})";
-
-        return await conn.ExecuteScalarAsync<bool>(sql, new { Email = email, ExcludeId = excludeId });
+        return await conn.ExecuteScalarAsync<bool>(
+            "sp_EmailExists",
+            new { p_Email = email, p_ExcludeId = excludeId },
+            commandType: CommandType.StoredProcedure
+        );
     }
 
     public async Task<bool> UsernameExistsAsync(string username, long? excludeId = null)
     {
         using var conn = dbFactory.CreateConnection();
 
-        var sql = $@"
-        SELECT EXISTS (
-            SELECT 1 FROM Users 
-            WHERE Username = @Username 
-            {(excludeId.HasValue ? "AND Id != @ExcludeId" : "")})";
-
-        return await conn.ExecuteScalarAsync<bool>(sql, new { Username = username, ExcludeId = excludeId });
+        return await conn.ExecuteScalarAsync<bool>(
+            "sp_UsernameExists",
+            new { p_Username = username, p_ExcludeId = excludeId },
+            commandType: CommandType.StoredProcedure
+        );
     }
 
     public async Task AddLoginAsync(UserLoginHistory history)
     {
         using var conn = dbFactory.CreateConnection();
 
-        var sql = @"
-        INSERT INTO UserLoginHistory (UserId, LoginAt, IpAddress, UserAgent, IsSuccess)
-        VALUES (@UserId, NOW(), @IpAddress, @UserAgent, @IsSuccess)";
-
-        await conn.ExecuteAsync(sql, history);
+        await conn.ExecuteAsync(
+            "sp_AddLoginHistory",
+            new
+            {
+                p_UserId = history.UserId,
+                p_IpAddress = history.IpAddress,
+                p_UserAgent = history.UserAgent,
+                p_IsSuccess = history.IsSuccess
+            },
+            commandType: CommandType.StoredProcedure
+        );
     }
 
     public async Task<long> CreateAsync(User user)
     {
         using var conn = dbFactory.CreateConnection();
 
-        var sql = @"
-        INSERT INTO Users (
-            Username, Email, PasswordHash, FirstName, LastName, 
-            RoleId, IsActive, CreatedAt
-        ) 
-        VALUES (
-            @Username, @Email, @PasswordHash, @FirstName, @LastName, 
-            @RoleId, @IsActive, NOW()
+        return await conn.ExecuteScalarAsync<long>(
+            "sp_CreateUser",
+            new
+            {
+                p_Username = user.Username,
+                p_Email = user.Email,
+                p_PasswordHash = user.PasswordHash,
+                p_FirstName = user.FirstName,
+                p_LastName = user.LastName,
+                p_RoleId = user.RoleId,
+                p_IsActive = user.IsActive
+            },
+            commandType: CommandType.StoredProcedure
         );
-        SELECT LAST_INSERT_ID();";
-
-        var newId = await conn.ExecuteScalarAsync<long>(sql, user);
-
-        return newId;
     }
 
     public async Task UpdateAsync(User user)
     {
         using var conn = dbFactory.CreateConnection();
 
-        var sql = @"
-        UPDATE Users SET
-        Email = @Email,
-        Username = @Username,
-        FirstName = @FirstName,
-        LastName = @LastName,
-        RoleId = @RoleId,
-        UpdatedAt = NOW()
-        WHERE Id = @Id";
-
-        await conn.ExecuteAsync(sql, user);
+        await conn.ExecuteAsync(
+            "sp_UpdateUser",
+            new
+            {
+                p_Id = user.Id,
+                p_Email = user.Email,
+                p_Username = user.Username,
+                p_FirstName = user.FirstName,
+                p_LastName = user.LastName,
+                p_RoleId = user.RoleId
+            },
+            commandType: CommandType.StoredProcedure
+        );
     }
 
     public async Task UpdateProfileAsync(User user)
     {
         using var conn = dbFactory.CreateConnection();
 
-        var sql = @"
-        UPDATE Users SET
-        Email = @Email,
-        Username = @Username,
-        FirstName = @FirstName,
-        LastName = @LastName,
-        UpdatedAt = NOW()
-        WHERE Id = @Id";
-
-        await conn.ExecuteAsync(sql, user);
+        await conn.ExecuteAsync(
+            "sp_UpdateUserProfile",
+            new
+            {
+                p_Id = user.Id,
+                p_Email = user.Email,
+                p_Username = user.Username,
+                p_FirstName = user.FirstName,
+                p_LastName = user.LastName
+            },
+            commandType: CommandType.StoredProcedure
+        );
     }
 
     public async Task UpdateStatusAsync(long id, bool newStatus)
     {
         using var conn = dbFactory.CreateConnection();
 
-        var sql = @"
-        UPDATE Users SET
-        IsActive = @IsActive,
-        UpdatedAt = NOW()
-        WHERE Id = @Id";
-
-        await conn.ExecuteAsync(sql, new { IsActive = newStatus, Id = id });
+        await conn.ExecuteAsync(
+            "sp_UpdateUserStatus",
+            new
+            {
+                p_IsActive = newStatus,
+                p_Id = id
+            },
+            commandType: CommandType.StoredProcedure
+        );
     }
 
     public async Task UpdatePasswordAsync(long userId, string passwordHash)
     {
         using var conn = dbFactory.CreateConnection();
 
-        var sql = @"
-        UPDATE Users SET 
-        PasswordHash = @PasswordHash,
-        UpdatedAt = NOW()
-        WHERE Id = @UserId";
-
-        await conn.ExecuteAsync(sql, new { UserId = userId, PasswordHash = passwordHash });
+        await conn.ExecuteAsync(
+            "sp_UpdateUserPassword",
+            new
+            {
+                p_UserId = userId,
+                p_PasswordHash = passwordHash
+            },
+            commandType: CommandType.StoredProcedure
+        );
     }
 
     public async Task DeleteAsync(long id)
     {
         using var conn = dbFactory.CreateConnection();
-        var sql = "DELETE FROM Users WHERE Id = @Id";
 
-        await conn.ExecuteAsync(sql, new { Id = id });
+        await conn.ExecuteAsync(
+            "sp_DeleteUser",
+            new { p_Id = id },
+            commandType: CommandType.StoredProcedure
+        );
     }
 }

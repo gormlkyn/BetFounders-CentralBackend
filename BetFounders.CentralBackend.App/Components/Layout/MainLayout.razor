@@ -36,7 +36,17 @@
 
     <RadzenBody>
         <div class="rz-p-4">
-            @Body
+            <ErrorBoundary @ref="errorBoundary">
+                <ChildContent>
+                    @Body
+                </ChildContent>
+                <ErrorContent Context="ex">
+                    <RadzenAlert AlertStyle="AlertStyle.Danger" Title="Oops! Something went wrong." AllowClose="false" Class="rz-mb-4">
+                        We encountered an unexpected system error. Please try reloading the page.
+                    </RadzenAlert>
+                    <RadzenButton Icon="refresh" Text="Reload Page" Click="@Recover" ButtonStyle="ButtonStyle.Danger" />
+                </ErrorContent>
+            </ErrorBoundary>
         </div>
     </RadzenBody>
 </RadzenLayout>
@@ -49,6 +59,18 @@
 
 @code {
     bool sidebarExpanded = true;
+    ErrorBoundary errorBoundary;
+
+    protected override void OnParametersSet()
+    {
+        errorBoundary?.Recover();
+    }
+
+    private void Recover()
+    {
+        errorBoundary?.Recover();
+        navigationManager.NavigateTo(navigationManager.Uri, forceLoad: true);
+    }
 
     private async Task ConfirmLogout()
     {

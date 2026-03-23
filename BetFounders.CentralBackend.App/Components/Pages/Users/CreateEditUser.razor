@@ -9,6 +9,7 @@
 @using BetFounders.CentralBackend.Common.Models
 @using BetFounders.CentralBackend.Common.Models.Users
 @using BetFounders.CentralBackend.Common.Services.Abstractions
+@using BetFounders.CentralBackend.Data.Constants
 @using BetFounders.CentralBackend.Data.Entities
 @using Microsoft.AspNetCore.Identity
 
@@ -175,84 +176,65 @@
         {
             pageName = "Create User";
         }
-        roles = await roleService.GetRoleDropDown();
+        roles = await roleService.GetRoleDropDownAsync();
     }
 
     private async Task OnSubmitAsync(UserModel model)
     {
-        try
-        {
-            isSubmitting = true;
-            if (!isEditMode)
-            {
-                var result = await userService.CreateAsync(model);
+        isSubmitting = true;
 
-                if (result.IsSuccess)
+        if (!isEditMode)
+        {
+            var result = await userService.CreateAsync(model);
+
+            if (result.IsSuccess)
+            {
+                notificationService.Notify(new NotificationMessage
                 {
-                    notificationService.Notify(NotificationSeverity.Success, "Success", "User created successfully!");
-                    notificationService.Notify(new NotificationMessage
-                    {
-                        Severity = NotificationSeverity.Success,
-                        Summary = "Success",
-                        Detail = "User created successfully!",
-                        Duration = UserNotificationConstants.SuccessDuration
-                    });
-                    navigationManager.NavigateTo("/users");
-                }
-                else
-                {
-                    notificationService.Notify(new NotificationMessage
-                    {
-                        Severity = NotificationSeverity.Error,
-                        Summary = "Validation Failed",
-                        Detail = result.ErrorMessage,
-                        Duration = UserNotificationConstants.ErrorDuration
-                    });
-                    return;
-                }
+                    Severity = NotificationSeverity.Success,
+                    Summary = "Success",
+                    Detail = "User created successfully!",
+                    Duration = UserNotificationConstants.SuccessDuration
+                });
+                navigationManager.NavigateTo("/users");
             }
             else
             {
-                var result = await userService.UpdateAsync(model);
-
-                if (result.IsSuccess)
+                notificationService.Notify(new NotificationMessage
                 {
-                    notificationService.Notify(new NotificationMessage
-                    {
-                        Severity = NotificationSeverity.Success,
-                        Summary = "Updated",
-                        Detail = "User updated successfully!",
-                        Duration = UserNotificationConstants.SuccessDuration
-                    });
-                    navigationManager.NavigateTo("/users");
-                }
-                else
-                {
-                    notificationService.Notify(new NotificationMessage
-                    {
-                        Severity = NotificationSeverity.Error,
-                        Summary = "Update Failed",
-                        Detail = result.ErrorMessage,
-                        Duration = UserNotificationConstants.ErrorDuration
-                    });
-                    return;
-                }
+                    Severity = NotificationSeverity.Error,
+                    Summary = "Validation Failed",
+                    Detail = result.ErrorMessage,
+                    Duration = UserNotificationConstants.ErrorDuration
+                });
             }
+        }
+        else
+        {
+            var result = await userService.UpdateAsync(model);
 
-        }
-        catch
-        {
-            notificationService.Notify(new NotificationMessage
+            if (result.IsSuccess)
             {
-                Severity = NotificationSeverity.Error,
-                Summary = "System Error",
-                Detail = "An unexpected error occurred while deleting. Please try again later",
-                Duration = UserNotificationConstants.ErrorDuration
-            });
+                notificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Success,
+                    Summary = "Updated",
+                    Detail = "User updated successfully!",
+                    Duration = UserNotificationConstants.SuccessDuration
+                });
+                navigationManager.NavigateTo("/users");
+            }
+            else
+            {
+                notificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Error,
+                    Summary = "Update Failed",
+                    Detail = result.ErrorMessage,
+                    Duration = UserNotificationConstants.ErrorDuration
+                });
+            }
         }
-        finally
-        {
-            isSubmitting = false;
-        }
+        isSubmitting = false;
     }
 }

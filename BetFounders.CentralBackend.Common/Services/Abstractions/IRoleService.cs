@@ -4,5 +4,5 @@ namespace BetFounders.CentralBackend.Common.Services.Abstractions;
 
 public interface IRoleService
 {
-    Task<IEnumerable<EntityDropDownModel>> GetRoleDropDown();
+    Task<IEnumerable<EntityDropDownModel>> GetRoleDropDownAsync();
 }

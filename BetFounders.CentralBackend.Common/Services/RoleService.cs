@@ -7,7 +7,7 @@ namespace BetFounders.CentralBackend.Common.Services;
 
 public class RoleService(IRoleRepository roleRepo, IMapper mapper) : IRoleService
 {
-    public async Task<IEnumerable<EntityDropDownModel>> GetRoleDropDown()
+    public async Task<IEnumerable<EntityDropDownModel>> GetRoleDropDownAsync()
     {
         var roles = await roleRepo.GetRolesForSelectionAsync();
         return mapper.Map<IEnumerable<EntityDropDownModel>>(roles);

@@ -2,12 +2,14 @@
 using BetFounders.CentralBackend.Common.Models;
 using BetFounders.CentralBackend.Common.Models.Users;
 using BetFounders.CentralBackend.Common.Services.Abstractions;
+using BetFounders.CentralBackend.Data.Constants;
 using BetFounders.CentralBackend.Data.Entities.Users;
 using BetFounders.CentralBackend.Data.Repositories.Abstractions;
+using Microsoft.Extensions.Logging;
 
 namespace BetFounders.CentralBackend.Common.Services;
 
-public class UserService(IUserRepository userRepo, IMapper mapper) : IUserService
+public class UserService(IUserRepository userRepo, IMapper mapper, ILogger<UserService> logger) : IUserService
 {
     public async Task<IEnumerable<UserGridModel>> GetAllAsync(long excludeId)
     {
@@ -44,7 +46,6 @@ public class UserService(IUserRepository userRepo, IMapper mapper) : IUserServic
         try
         {
             var normalizedEmail = model.Email?.Trim().ToLower();
-
             var normalizedUsername = model.Username?.Trim();
 
             var emailExists = await userRepo.EmailExistsAsync(normalizedEmail);
@@ -63,17 +64,22 @@ public class UserService(IUserRepository userRepo, IMapper mapper) : IUserServic
 
             userEntity.Email = normalizedEmail;
             userEntity.Username = normalizedUsername;
-
             userEntity.PasswordHash = BCrypt.Net.BCrypt.HashPassword(model.Password);
 
             var newId = await userRepo.CreateAsync(userEntity);
 
             return ServiceResult<long>.Success(newId);
         }
-        catch
+        catch (Exception ex)
         {
+            logger.LogError(ex, "Failed to create user with email: {Email}", model.Email);
             return ServiceResult<long>.Failure("An unexpected error occurred while creating the user.");
         }
+    }
+    public async Task<ServiceResult<long>> CreateViewerAsync(UserModel model)
+    {
+        model.RoleId = UserRoles.ViewerId;
+        return await CreateAsync(model);
     }
 
     public Task<ServiceResult<bool>> UpdateAsync(UserModel model)
@@ -93,13 +99,19 @@ public class UserService(IUserRepository userRepo, IMapper mapper) : IUserServic
         try
         {
             var normalizedEmail = userEntity.Email?.ToLower().Trim();
-            var normalizedUsername = userEntity.Username?.ToLower().Trim();
+            var normalizedUsername = userEntity.Username?.Trim();
 
             var emailExists = await userRepo.EmailExistsAsync(normalizedEmail, userEntity.Id);
-            if (emailExists) return ServiceResult<bool>.Failure("The email is already in use.");
+            if (emailExists)
+            {
+                return ServiceResult<bool>.Failure("The email is already in use.");
+            }
 
             var usernameExists = await userRepo.UsernameExistsAsync(normalizedUsername, userEntity.Id);
-            if (usernameExists) return ServiceResult<bool>.Failure("The username is already in use.");
+            if (usernameExists)
+            {
+                return ServiceResult<bool>.Failure("The username is already in use.");
+            }
 
             userEntity.Email = normalizedEmail;
             userEntity.Username = normalizedUsername;
@@ -115,21 +127,27 @@ public class UserService(IUserRepository userRepo, IMapper mapper) : IUserServic
 
             return ServiceResult<bool>.Success(true);
         }
-        catch
+        catch (Exception ex)
         {
+            logger.LogError(ex, "Failed to update user with ID: {UserId}. Profile update: {IsProfileUpdate}", userEntity.Id, isProfileUpdate);
             return ServiceResult<bool>.Failure("An error occurred while updating the user.");
         }
     }
 
-    public async Task<ServiceResult<bool>> UpdateStatusAsync(long id, bool newStatus)
+    public async Task<ServiceResult<bool>> UpdateStatusAsync(long id, long currentUserId, bool newStatus)
     {
+        if (id == currentUserId)
+        {
+            return ServiceResult<bool>.Failure("You cannot change your own status");
+        }
         try
         {
             await userRepo.UpdateStatusAsync(id, newStatus);
             return ServiceResult<bool>.Success(true);
         }
-        catch
+        catch (Exception ex)
         {
+            logger.LogError(ex, "Failed to update status for user with ID: {UserId} to {NewStatus}", id, newStatus);
             return ServiceResult<bool>.Failure("An error occurred while updating the user.");
         }
     }
@@ -161,21 +179,28 @@ public class UserService(IUserRepository userRepo, IMapper mapper) : IUserServic
 
             return ServiceResult<bool>.Success(true);
         }
-        catch
+        catch (Exception ex)
         {
+            logger.LogError(ex, "Failed to change password for user with ID: {UserId}", model.UserId);
             return ServiceResult<bool>.Failure("An error occurred while changing the password.");
         }
     }
 
-    public async Task<ServiceResult<bool>> DeleteAsync(long id)
+    public async Task<ServiceResult<bool>> DeleteAsync(long id, long currentUserId)
     {
+        if (id == currentUserId)
+        {
+            return ServiceResult<bool>.Failure("You cannot delete your own account.");
+        }
+
         try
         {
             await userRepo.DeleteAsync(id);
             return ServiceResult<bool>.Success(true);
         }
-        catch
+        catch (Exception ex)
         {
+            logger.LogError(ex, "Failed to delete user with ID: {UserId}", id);
             return ServiceResult<bool>.Failure("An error occurred while deleting the user.");
         }
     }

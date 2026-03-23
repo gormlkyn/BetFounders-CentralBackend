@@ -5,11 +5,11 @@ namespace BetFounders.CentralBackend.Data.Repositories.Abstractions;
 public interface IUserRepository
 {
     Task<IEnumerable<User>> GetAllAsync(long? Id = null);
-    
+
     Task<User?> GetByIdAsync(long id);
-    
+
     Task<User?> GetByUsernameAsync(string username);
-    
+
     Task<IEnumerable<UserLoginHistory>> GetLoginsByUserIdAsync(long userId);
 
     Task<bool> EmailExistsAsync(string email, long? excludeId = null);

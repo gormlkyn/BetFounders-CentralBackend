@@ -17,13 +17,15 @@ public interface IUserService
 
     Task<ServiceResult<long>> CreateAsync(UserModel model);
 
+    Task<ServiceResult<long>> CreateViewerAsync(UserModel model);
+
     Task<ServiceResult<bool>> UpdateAsync(UserModel model);
 
     Task<ServiceResult<bool>> UpdateAsync(UserProfileModel model);
 
-    Task<ServiceResult<bool>> UpdateStatusAsync(long id, bool newStatus);
+    Task<ServiceResult<bool>> UpdateStatusAsync(long id, long currentUserId, bool newStatus);
 
     Task<ServiceResult<bool>> ChangePasswordAsync(UserPasswordModel model);
 
-    Task<ServiceResult<bool>> DeleteAsync(long id);
+    Task<ServiceResult<bool>> DeleteAsync(long id, long currentUserId);
 }

@@ -155,51 +155,44 @@
 
     private async Task OnSubmitAsync()
     {
-        try
-        {
-            if (model.Password != confirmPassword)
-            {
-                notificationService.Notify(new NotificationMessage
-                {
-                    Severity = NotificationSeverity.Error,
-                    Detail = "result.ErrorMessage",
-                    Duration = UserNotificationConstants.ErrorDuration
-                });
-            }
-            isSubmitting = true;
-            model.RoleId = 3;
 
-            var result = await userService.CreateAsync(model);
-
-            if (result.IsSuccess)
-            {
-                notificationService.Notify(NotificationSeverity.Success, "Registration Successful", "You can now log in with your new account!");
-                navigationManager.NavigateTo("/login");
-            }
-            else
-            {
-                notificationService.Notify(new NotificationMessage
-                {
-                    Severity = NotificationSeverity.Error,
-                    Summary = "Registration Failed",
-                    Detail = result.ErrorMessage,
-                    Duration = UserNotificationConstants.ErrorDuration
-                });
-            }
-        }
-        catch
+        if (model.Password != confirmPassword)
         {
             notificationService.Notify(new NotificationMessage
             {
                 Severity = NotificationSeverity.Error,
-                Summary = "System Error",
-                Detail = "An unexpected error occurred. Please try again later.",
+                Summary = "Validation Error",
+                Detail = "Passwords do not match",
+                Duration = UserNotificationConstants.ErrorDuration
+            });
+            return;
+        }
+
+        isSubmitting = true;
+        var result = await userService.CreateViewerAsync(model);
+
+        if (result.IsSuccess)
+        {
+            notificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Success,
+                Summary = "Registration Successful",
+                Detail = "You can now log in with your new account!",
+                Duration = UserNotificationConstants.SuccessDuration
+            });
+            navigationManager.NavigateTo("/login");
+        }
+        else
+        {
+            notificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "Registration Failed",
+                Detail = result.ErrorMessage,
                 Duration = UserNotificationConstants.ErrorDuration
             });
         }
-        finally
-        {
-            isSubmitting = false;
-        }
+
+        isSubmitting = false;
     }
 }

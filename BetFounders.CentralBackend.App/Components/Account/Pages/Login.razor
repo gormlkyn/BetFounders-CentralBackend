@@ -43,11 +43,11 @@
         padding: 1.5rem;
     }
 
-    .glass-card .rz-card {
-        background-color: transparent !important;
-        box-shadow: none !important;
-        padding: 0 !important;
-    }
+        .glass-card .rz-card {
+            background-color: transparent !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+        }
 </style>
 
 <div class="login-background">
@@ -74,52 +74,28 @@
     async Task OnSubmitAsync(LoginArgs args)
     {
         isBusy = true;
-        try
+
+        var ip = httpContext.HttpContext?.Connection?.RemoteIpAddress?.ToString();
+        var ua = httpContext.HttpContext?.Request?.Headers?.UserAgent.ToString();
+
+        var result = await authService.LoginAsync(args.Username, args.Password, ip, ua);
+        if (result.IsSuccess)
         {
-            var ip = httpContext.HttpContext?.Connection?.RemoteIpAddress?.ToString();
-            var ua = httpContext.HttpContext?.Request?.Headers?.UserAgent.ToString();
-
-            var user = await authService.LoginAsync(args.Username, args.Password, ip, ua);
-
-            if (user != null)
-            {
-                var ticket = Guid.NewGuid().ToString();
-                memoryCache.Set(ticket, user, TimeSpan.FromSeconds(5));
-                navigationManager.NavigateTo($"/api/auth/callback?ticket={ticket}", forceLoad: true);
-            }
-            else
-            {
-                notificationService.Notify(new NotificationMessage
-                {
-                    Severity = NotificationSeverity.Error,
-                    Summary = "Invalid Credentials",
-                    Detail = "Username or password is incorrect",
-                    Duration = UserNotificationConstants.ErrorDuration
-                });
-            }
+            var ticket = Guid.NewGuid().ToString();
+            memoryCache.Set(ticket, result.Data, TimeSpan.FromSeconds(5));
+            navigationManager.NavigateTo($"/api/auth/callback?ticket={ticket}", forceLoad: true);
         }
-        catch (UnauthorizedAccessException ex) when (ex.Message == "Account is inactive")
+        else
         {
+            var severity = result.ErrorMessage.Contains("inactive") ? NotificationSeverity.Warning : NotificationSeverity.Error;
+
             notificationService.Notify(new NotificationMessage
             {
-                Severity = NotificationSeverity.Warning,
-                Summary = "Inactive Account",
-                Detail = "Your account has been deactivated. Please contact your manager.",
-                Duration = UserNotificationConstants.WarningDuration
-            });
-        }
-        catch
-        {
-            notificationService.Notify(new NotificationMessage
-            {
-                Severity = NotificationSeverity.Error,
-                Summary = "Invalid Credentials",
-                Detail = "Username or password is incorrect",
+                Severity = severity,
+                Summary = severity == NotificationSeverity.Warning ? "Account Issue" : "Login Failed",
+                Detail = result.ErrorMessage,
                 Duration = UserNotificationConstants.ErrorDuration
             });
-        }
-        finally
-        {
             isBusy = false;
         }
     }

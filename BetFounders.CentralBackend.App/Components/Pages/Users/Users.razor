@@ -7,6 +7,7 @@
 @using BetFounders.CentralBackend.Common.Extensions
 @using BetFounders.CentralBackend.Common.Models.Users
 @using BetFounders.CentralBackend.Common.Services.Abstractions
+@using BetFounders.CentralBackend.Data.Constants
 @using BetFounders.CentralBackend.Data.Entities
 @using BetFounders.CentralBackend.Data.Entities.Users
 @using Microsoft.AspNetCore.Authorization
@@ -81,49 +82,26 @@
 
     async Task OnStatusToggle(UserGridModel user, bool newStatus)
     {
-        if (user.Id == User.GetId())
+        var result = await userService.UpdateStatusAsync(user.Id, User.GetId(), newStatus);
+
+        if (result.IsSuccess)
         {
+            user.IsActive = newStatus;
             notificationService.Notify(new NotificationMessage
             {
-                Severity = NotificationSeverity.Error,
-                Summary = "Unaothorized action",
-                Detail = "You cannot delete your own account",
-                Duration = UserNotificationConstants.ErrorDuration
+                Severity = NotificationSeverity.Success,
+                Summary = "Updated",
+                Detail = $"User was successfully {(newStatus ? "activated" : "deactivated")}",
+                Duration = UserNotificationConstants.SuccessDuration
             });
-            return;
         }
-        try
-        {
-            var result = await userService.UpdateStatusAsync(user.Id, newStatus);
-            if (result.IsSuccess)
-            {
-                user.IsActive = newStatus;
-                notificationService.Notify(new NotificationMessage
-                {
-                    Severity = NotificationSeverity.Success,
-                    Summary = "Updated",
-                    Detail = $"User was successfully {(newStatus ? "activated" : "deactivated")}",
-                    Duration = UserNotificationConstants.SuccessDuration
-                });
-            }
-            else
-            {
-                notificationService.Notify(new NotificationMessage
-                {
-                    Severity = NotificationSeverity.Error,
-                    Summary = "Update Failed",
-                    Detail = "Please try again later",
-                    Duration = UserNotificationConstants.ErrorDuration
-                });
-            }
-        }
-        catch
+        else
         {
             notificationService.Notify(new NotificationMessage
             {
                 Severity = NotificationSeverity.Error,
-                Summary = "System Error",
-                Detail = "An unexpected error occurred while deleting. Please try again later",
+                Summary = "Update Failed",
+                Detail = result.ErrorMessage ?? "Please try again later",
                 Duration = UserNotificationConstants.ErrorDuration
             });
         }
@@ -131,57 +109,38 @@
 
     async Task DeleteAsync(long id)
     {
-        if (id == User.GetId())
-        {
-            notificationService.Notify(new NotificationMessage
-            {
-                Severity = NotificationSeverity.Error,
-                Summary = "Unauthorized action",
-                Detail = "You cannot delete your own account",
-                Duration = UserNotificationConstants.ErrorDuration
-            });
-            return;
-        }
-        var confirmed = await dialogService.Confirm("Are you sure you want to delete this user? This cannot be undone.", "Delete User",
-            new ConfirmOptions() { OkButtonText = "Yes, Delete", CancelButtonText = "Cancel" });
+        var confirmed = await dialogService.Confirm(
+            "Are you sure you want to delete this user? This cannot be undone.",
+            "Delete User",
+            new ConfirmOptions() { OkButtonText = "Yes, Delete", CancelButtonText = "Cancel" }
+        );
 
         if (confirmed != true)
         {
             return;
         }
 
-        try
+        var result = await userService.DeleteAsync(id, User.GetId());
+
+        if (result.IsSuccess)
         {
-            var result = await userService.DeleteAsync(id);
-            if (result.IsSuccess)
+            notificationService.Notify(new NotificationMessage
             {
-                notificationService.Notify(new NotificationMessage
-                {
-                    Severity = NotificationSeverity.Success,
-                    Summary = "Deleted",
-                    Detail = "User was successfully deleted",
-                    Duration = UserNotificationConstants.SuccessDuration
-                });
-                users = await userService.GetAllAsync(User.GetId());
-            }
-            else
-            {
-                notificationService.Notify(new NotificationMessage
-                {
-                    Severity = NotificationSeverity.Error,
-                    Summary = "Delete Failed",
-                    Detail = "Please try again later",
-                    Duration = UserNotificationConstants.ErrorDuration
-                });
-            }
+                Severity = NotificationSeverity.Success,
+                Summary = "Deleted",
+                Detail = "User was successfully deleted",
+                Duration = UserNotificationConstants.SuccessDuration
+            });
+
+            users = await userService.GetAllAsync(User.GetId());
         }
-        catch
+        else
         {
             notificationService.Notify(new NotificationMessage
             {
                 Severity = NotificationSeverity.Error,
-                Summary = "System Error",
-                Detail = "An unexpected error occurred while deleting. Please try again later",
+                Summary = "Delete Failed",
+                Detail = result.ErrorMessage ?? "Please try again later",
                 Duration = UserNotificationConstants.ErrorDuration
             });
         }

@@ -1,5 +1,6 @@
-﻿using Dapper;
-
+﻿using BetFounders.CentralBackend.Data.Constants;
+using Dapper;
+using System.Data;
 namespace BetFounders.CentralBackend.Data.Database;
 
 public static class DbSeeder
@@ -14,42 +15,50 @@ public static class DbSeeder
     {
         var roles = new[]
         {
-            new { Name = "Admin",   Description = "Full access" },
-            new { Name = "Manager", Description = "Can manage users" },
-            new { Name = "Viewer",  Description = "Read only access" }
+            new { p_Name = UserRoles.Admin,   p_Description = UserRoles.AdminDescription },
+            new { p_Name = UserRoles.Manager, p_Description = UserRoles.ManagerDescription },
+            new { p_Name = UserRoles.Viewer,  p_Description = UserRoles.ViewerDescription }
         };
 
         using var conn = factory.CreateConnection();
-        var sql = @"
-            INSERT INTO Roles (Name, Description)
-            SELECT @Name, @Description
-            WHERE NOT EXISTS (SELECT 1 FROM Roles WHERE Name = @Name)";
 
-        await conn.ExecuteAsync(sql, roles);
+        await conn.ExecuteAsync(
+            "sp_SeedRole",
+            roles,
+            commandType: CommandType.StoredProcedure
+        );
     }
 
     private static async Task SeedAdminUserAsync(DbConnectionFactory factory)
     {
         using var conn = factory.CreateConnection();
 
-        var count = await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM Users WHERE Username = 'admin'");
-        if (count > 0) return;
+        var adminExists = await conn.ExecuteScalarAsync<bool>(
+            "sp_UsernameExists",
+            new { p_Username = "admin", p_ExcludeId = (long?)null },
+            commandType: CommandType.StoredProcedure
+        );
+
+        if (adminExists)
+        {
+            return;
+        }
 
         var passwordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123");
 
-        var sql = @"
-            INSERT INTO Users (Username, Email, PasswordHash, FirstName, LastName, RoleId, IsActive, CreatedAt)
-            SELECT @Username, @Email, @PasswordHash, @FirstName, @LastName, r.Id, 1, NOW()
-            FROM Roles r
-            WHERE r.Name = 'Admin'";
-
-        await conn.ExecuteAsync(sql, new
-        {
-            Username = "admin",
-            Email = "super_admin@betfounders.com",
-            PasswordHash = passwordHash,
-            FirstName = "System",
-            LastName = "Admin"
-        });
+        await conn.ExecuteScalarAsync<long>(
+            "sp_CreateUser",
+            new
+            {
+                p_Username = "admin",
+                p_Email = "super_admin@betfounders.com",
+                p_PasswordHash = passwordHash,
+                p_FirstName = "System",
+                p_LastName = "Admin",
+                p_RoleId = UserRoles.AdminId,
+                p_IsActive = true
+            },
+            commandType: CommandType.StoredProcedure
+        );
     }
 }
